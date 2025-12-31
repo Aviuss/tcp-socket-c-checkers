@@ -2,6 +2,31 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+struct CheckersCoords {
+    int x;
+    int y;
+};
+
+// {x,y = -1} == undefined
+struct CheckersCoords charPosToCoords(char* charPos, int charPosLen) {
+    struct CheckersCoords coords;
+
+    if (charPosLen != 2) {
+        coords.x = -1; coords.y = -1;
+        return coords;
+    }
+
+    coords.y = charPos[0] - 'A';
+    coords.x = charPos[1] - '1';
+
+    if (coords.x < 0 || coords.x > 7 || coords.y < 0 || coords.y > 7) {
+        coords.x = -1; coords.y = -1;
+        return coords;
+    }
+
+    return coords;
+}
+
 void initGame(struct Game* game) {
     game->turn = 'w';
     for (int y = 0; y < 8; y++) {
@@ -24,9 +49,10 @@ void initGame(struct Game* game) {
 }
 
 void printBoard(struct Game* game) {
-    printf("  A B C D E F G H\n");
+    printf("    A B C D E F G H\n");
+    printf("  +-----------------+\n");
     for(int y = 7; y >= 0; y--) {
-        printf("%d ", y);
+        printf("%d | ", y+1);
         for(int x = 0; x < 8; x++) {
             if (game->board[y][x] == 'x') {
                 printf("  ");
@@ -34,10 +60,12 @@ void printBoard(struct Game* game) {
                 printf("%c ", game->board[y][x]);
             }
         }
-        printf("%d", y);
+        printf("| %d", y+1);
         printf("\n");
     }
-    printf("  A B C D E F G H\n");
+    
+    printf("  +-----------------+\n");
+    printf("    A B C D E F G H\n");
 
     printf("Turn: %c\n\n", game->turn);
 }
