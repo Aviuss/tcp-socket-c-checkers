@@ -1,6 +1,7 @@
 #include "checkers.h"
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 
 // {ia,in = -1} == undefined
 struct CheckersCoords {
@@ -19,6 +20,19 @@ int checkersCoordsInBounds(struct CheckersCoords* coords) {
         return -1;
     }
     return 1;
+}
+
+int allowedCharInCharPos(char* character) {
+    if ((*character)-'A' >= 0 && (*character)-'A'<8) {
+        return 1;
+    }
+    if ((*character)-'1' >= 0 && (*character)-'1'<8) {
+        return 1;
+    }
+    if ((*character) == '-' || (*character) == '>') {
+        return 1;
+    }
+    return -1;
 }
 
 struct CheckersCoords charPosToCoords(char* charPos, int charPosLen) {
@@ -41,6 +55,17 @@ struct CheckersCoords charPosToCoords(char* charPos, int charPosLen) {
 }
 
 struct CheckersCoordsSequence commandToCoordsSequence(char* command, int commandCharLen) {
+    while(commandCharLen > 0 && allowedCharInCharPos(command) == -1) {
+        command++;
+        commandCharLen--;
+    }
+
+    char *end = command + commandCharLen - 1;
+    while(commandCharLen > 0 && end > command && allowedCharInCharPos(end) == -1) {
+        end--;
+        commandCharLen--;
+    } 
+
     struct CheckersCoordsSequence sequence;
     sequence.seq = NULL;
     sequence.seqLen = (commandCharLen+2)/4;
