@@ -1,4 +1,5 @@
-#pragma once
+#ifndef CHECKERS_H
+#define CHECKERS_H
 
 // 'w', 'W' / 'b', 'B' ; white / black
 // uppercase => queen
@@ -25,3 +26,5 @@ int makeMove(
 char getResult(struct Game* game);
 
 void printBoard(struct Game* game);
+
+#endif
