@@ -5,7 +5,7 @@
 // ' ' - blank
 // 'x' - invalid
 struct Game {
-    char board[8][8]; // [0][0] - lower right corner (A1) ; [y][x] y => A,B..., x => 1,2,...
+    char board[8][8]; // [0][0] - lower right corner (A1) ; [in][ia] in => 1,2..., ia => A,B,...
     char turn;
 };
 
@@ -17,8 +17,7 @@ void initGame(struct Game* game);
 int makeMove(
     struct Game* game,
     char colorMove, // 'w' / 'b'
-    char* fromPos, int fromPosLen,
-    char* toPos, int toPosLen
+    char* command, int commandCharLen // "A1->B3"
 );
 
 // return:
