@@ -5,7 +5,11 @@
 int main() {
     struct Game game;
     initGame(&game);
-    game.board[2][0] = 'W';
+    //game.board[2][0] = 'W';
+    //game.board[3][1] = 'b';
+    game.board[6][4] = ' ';
+    game.board[7][5] = ' ';
+    game.board[5][3] = ' ';
 
     while (getResult(&game) == ' ')
     {
