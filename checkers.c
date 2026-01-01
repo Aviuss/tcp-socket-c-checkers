@@ -2,12 +2,18 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// {x,y = -1} == undefined
 struct CheckersCoords {
     int x;
     int y;
 };
 
-// {x,y = -1} == undefined
+// {seqLen = -1} == undefined
+struct CheckersCoordsSequence {
+    struct CheckersCoords* seq;
+    int seqLen;
+};
+
 struct CheckersCoords charPosToCoords(char* charPos, int charPosLen) {
     struct CheckersCoords coords;
 
@@ -25,6 +31,36 @@ struct CheckersCoords charPosToCoords(char* charPos, int charPosLen) {
     }
 
     return coords;
+}
+
+struct CheckersCoordsSequence commandToCoordsSequence(char* command, int commandLen) {
+    struct CheckersCoordsSequence sequence;
+    sequence.seq = NULL;
+    sequence.seqLen = (commandLen+2)/4;
+
+    if (commandLen != 4*sequence.seqLen - 2) {
+        sequence.seqLen = -1;
+        return sequence;
+    }
+
+    sequence.seq = malloc(sequence.seqLen * sizeof(struct CheckersCoords));
+
+    char charPos[2];
+    for (int i = 0; i < sequence.seqLen; i++)
+    {
+        charPos[0] = command[4*i];
+        charPos[1] = command[4*i+1];
+
+        sequence.seq[i] = charPosToCoords(charPos, 2);
+        if (sequence.seq[i].x == -1) {
+            free(sequence.seq);
+            sequence.seq = NULL;
+            sequence.seqLen = -1;
+            return sequence;
+        }
+    }
+    
+    return sequence;
 }
 
 void initGame(struct Game* game) {
@@ -68,6 +104,16 @@ void printBoard(struct Game* game) {
     printf("    A B C D E F G H\n");
 
     printf("Turn: %c\n\n", game->turn);
+
+
+    char a[6] = {'A', '1', '-', '>', 'B', '3'};
+    struct CheckersCoordsSequence x = commandToCoordsSequence(a, 6);
+    printf("%d \n", x.seqLen);
+    for (int i = 0; i < x.seqLen; i++)
+    {
+        printf("%d %d \n", x.seq[i].x, x.seq[i].y);
+    }
+    
 }
 
 int makeMove(
