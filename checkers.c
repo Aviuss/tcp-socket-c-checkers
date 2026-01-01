@@ -128,15 +128,11 @@ int makeMove(
         free(sequence.seq); sequence.seq = NULL; return -1;
     }
 
-    printf("%d %d\n", currentCoords.in, currentCoords.ia);
-
     if (sequence.seqLen == 2) { //simple move
         struct CheckersCoords nextCoords = sequence.seq[1];
-        if (checkersCoordsInBounds(&nextCoords) == -1) {
+        if (checkersCoordsInBounds(&nextCoords) == -1 || game->board[nextCoords.in][nextCoords.ia] != ' ') {
             free(sequence.seq); sequence.seq = NULL; return -1;
         }
-        
-        printf("%d %d\n", nextCoords.in, nextCoords.ia);
 
         int increment = 1;
         if (colorMove == 'b') { increment = -1; }
