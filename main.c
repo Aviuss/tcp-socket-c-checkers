@@ -18,7 +18,7 @@ int main() {
     makeMove(&game, 'w', a3, 6);
     printBoard(&game);
 
-    char a4[6] = {'C', '5', '-', '>', 'B', '4'};
+    char a4[6] = {'C', '5', '-', '>', 'A', '3'};
     makeMove(&game, 'b', a4, 6);
     printBoard(&game);
 

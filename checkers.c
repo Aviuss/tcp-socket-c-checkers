@@ -123,10 +123,17 @@ int makeMove(
     struct CheckersCoordsSequence sequence = commandToCoordsSequence(command, commandCharLen);
     if (sequence.seqLen <= 1) { return -1; }
 
+    char opponent = 'b';
+    if (game->turn == 'b') {
+        opponent = 'w';
+    }
+
     struct CheckersCoords currentCoords = sequence.seq[0];
     if (checkersCoordsInBounds(&currentCoords) == -1 || game->board[currentCoords.in][currentCoords.ia] != colorMove) {
         free(sequence.seq); sequence.seq = NULL; return -1;
     }
+
+    int moved = -1;
 
     if (sequence.seqLen == 2) { //simple move
         struct CheckersCoords nextCoords = sequence.seq[1];
@@ -145,19 +152,55 @@ int makeMove(
             currentCoords.ia + increment == nextCoords.ia) // right
         ) {
             game->board[currentCoords.in][currentCoords.ia] = ' ';
-            game->board[nextCoords.in][nextCoords.ia] = colorMove;  
-        } else  {
-            free(sequence.seq); sequence.seq = NULL; return -1;
+            game->board[nextCoords.in][nextCoords.ia] = colorMove;
+            moved = 1;
+            currentCoords = nextCoords;
         }
     }
 
-    if (game->turn == 'w') {
-        game->turn = 'b';
-    } else {
-        game->turn = 'w';
+    // strike
+    if (moved == -1) {
+        for (int i = 1; i < sequence.seqLen; i++) {
+            struct CheckersCoords nextCoords = sequence.seq[i];
+            if (checkersCoordsInBounds(&nextCoords) == -1 || game->board[nextCoords.in][nextCoords.ia] != ' ' || game->board[(currentCoords.in + nextCoords.in)/2][(currentCoords.ia + nextCoords.ia)/2] != opponent) {
+                free(sequence.seq); sequence.seq = NULL; return -1;
+            }
+
+            int increment = 2;
+            if (colorMove == 'b') { increment = -2; }
+
+            if (
+                (currentCoords.in + increment == nextCoords.in &&
+                currentCoords.ia - increment == nextCoords.ia) // left up
+                ||
+                (currentCoords.in + increment == nextCoords.in &&
+                currentCoords.ia + increment == nextCoords.ia) // right up
+                ||
+                (currentCoords.in - increment == nextCoords.in &&
+                currentCoords.ia - increment == nextCoords.ia) // left down
+                ||
+                (currentCoords.in - increment == nextCoords.in &&
+                currentCoords.ia + increment == nextCoords.ia) // right down
+            ) {
+                game->board[currentCoords.in][currentCoords.ia] = ' ';
+                game->board[nextCoords.in][nextCoords.ia] = colorMove;
+                game->board[(currentCoords.in + nextCoords.in)/2][(currentCoords.ia + nextCoords.ia)/2] = ' ';
+                moved = 1;
+                currentCoords = nextCoords;
+            } else if (i + 1 < sequence.seqLen) {
+                free(sequence.seq); sequence.seq = NULL; return -1;
+            }
+        }
+    
+    }   
+
+    if (moved == -1) {
+        free(sequence.seq); sequence.seq = NULL;
+        return -1;
     }
     
     free(sequence.seq); sequence.seq = NULL;
+    game->turn = opponent;
     return 1;
 }
 
