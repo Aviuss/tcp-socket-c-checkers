@@ -28,17 +28,21 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 	
-    char buff[BUFFER_SIZE];
-    bzero(buff, BUFFER_SIZE);
-    printf("wpisz wiadomosc dla servera:");
-    fgets(buff, sizeof(buff), stdin);
-    printf("\n");
-    write(SocketFD, buff, sizeof buff);
+    while (1)
+    {
+        char buff[BUFFER_SIZE];
+        bzero(buff, BUFFER_SIZE);
+        printf("wpisz wiadomosc dla servera:");
+        fgets(buff, sizeof(buff), stdin);
+        printf("\n");
+        write(SocketFD, buff, sizeof buff);
+        
+        
+        bzero(buff, 1000);
+        read(SocketFD, buff, sizeof buff);
+        printf("server: %s \n", buff);
+        close(SocketFD);       
+    }
     
-    
-    bzero(buff, 1000);
-    read(SocketFD, buff, sizeof buff);
-    printf("server: %s \n", buff);
-    close(SocketFD);
-	return EXIT_SUCCESS;
+    return EXIT_SUCCESS;
 }
