@@ -12,6 +12,7 @@
 void deserialize_game(char *buffer, struct Game *game) {
     memcpy(game->board, buffer, 64);
     game->turn = buffer[64];
+    game->won = buffer[65];
 }
 
 int split_by_space(const char *input, char ***words) {
@@ -58,13 +59,13 @@ void updateBoard() {
     write(SocketFD, buff, sizeof buff);   
     bzero(buff, BUFFER_SIZE);
     read(SocketFD, buff, sizeof buff);
-    deserialize_game(buff, &game);
+    if (strcmp(buff, "-1") != 0) {
+        deserialize_game(buff, &game);
+    }
 }
 
-void createGame() {
-    bzero(buff, BUFFER_SIZE);
-    strcpy(buff, "create");
-    write(SocketFD, buff, sizeof buff);   
+void createGame(char* buffor, size_t len) {
+    write(SocketFD, buffor, len);   
 
     bzero(buff, BUFFER_SIZE);
     read(SocketFD, buff, sizeof buff);
@@ -102,6 +103,7 @@ void joinGame(char* buffor, size_t len) {
 
 int main(int argc, char *argv[])
 {
+    system("clear");
 	SocketFD = socket(AF_INET, SOCK_STREAM, 0);
 	if (SocketFD == -1) {
 		perror("cannot create socket");
@@ -123,7 +125,7 @@ int main(int argc, char *argv[])
 
     while (partyId == -1) {
         system("clear");
-        printf("Checkers online \ntype 'create' to create a lobby \ntype 'join [party id]' to join a lobby \n> ");
+        printf("Checkers online \ntype 'create' to create a lobby (type 'create endgame' to create endgame lobby)\ntype 'join [party id]' to join a lobby \n> ");
         bzero(buff, BUFFER_SIZE);
         fgets(buff, sizeof(buff), stdin);
         printf("\n");
@@ -133,9 +135,9 @@ int main(int argc, char *argv[])
         int num_words = split_by_space(buff, &words);
 
         if (num_words >= 1 && strcmp(words[0], "create") == 0) {
-            createGame();
+            createGame(buff, sizeof buff);
             printf("Party created. Party id is '%d' \nWaiting for other player to join .. .\n", partyId);
-            while(lobbyReady() == 0) {
+            while(partyId != -1 && lobbyReady() == 0) {
                 sleep(1);
             }
         } else if (num_words >= 2 && strcmp(words[0], "join") == 0) {
@@ -157,6 +159,16 @@ int main(int argc, char *argv[])
 
     while (1)
     {
+        if (game.won != ' ') {
+            printf("WINNER IS ");
+            if (game.won == 'w') {
+                printf(" WHITE!\n");
+            } else {
+                printf(" BLACK!\n");
+            }
+            break;
+        }
+
         if (game.turn == color) {
             printf("Type turn sequence (e.g. A1=>B2 or A1=>B2=>A3): ");
             bzero(buff, sizeof(buff));
@@ -172,13 +184,12 @@ int main(int argc, char *argv[])
             
             bzero(buff, sizeof(buff));
             read(SocketFD, buff, sizeof(buff));
-            printf("buff: %s\n", buff);
             if (strcmp(buff, "1") == 0) {
                 updateBoard();
             }
         } else {
             printf("Opponents turn .. .\n");
-            while(game.turn != color) {
+            while(game.won == ' ' && game.turn != color) {
                 sleep(1);
                 updateBoard();
             }
@@ -187,6 +198,10 @@ int main(int argc, char *argv[])
         system("clear");
         printBoard(&game);
     }
+
+
+    printf("\nThanks for playing!\n");
+
     
     close(SocketFD);
     return EXIT_SUCCESS;

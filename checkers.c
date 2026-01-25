@@ -6,6 +6,7 @@
 
 void initGame(struct Game* game) {
     game->turn = 'w';
+    game->won = ' ';
     for (int in = 0; in < 8; in++) {
         for (int ia = 0; ia < 8; ia++) {
             if (ia % 2 != in % 2) {
@@ -23,6 +24,24 @@ void initGame(struct Game* game) {
 
         }
     }
+}
+
+void initEndGame(struct Game* game) {
+    game->turn = 'w';
+    game->won = ' ';
+    for (int in = 0; in < 8; in++) {
+        for (int ia = 0; ia < 8; ia++) {
+            if (ia % 2 != in % 2) {
+                game->board[in][ia] = 'x';
+                continue;
+            }
+            game->board[in][ia] = ' ';
+        }
+    }
+    game->board[7][7] = 'W';
+    game->board[2][2] = 'b';
+    game->board[5][5] = 'b';
+    game->board[5][3] = 'b';
 }
 
 void printBoard(struct Game* game) {
@@ -52,6 +71,7 @@ int makeMove(
     char colorMove,
     char* command, int commandCharLen
 ) {
+    if (game == NULL) { return -1; }
     if (game->turn != colorMove) { return -1; }
 
     struct CheckersCoordsSequence sequence = commandToCoordsSequence(command, commandCharLen);
@@ -88,9 +108,14 @@ int makeMove(
 
         int isValidMove = 1;
 
-        if (abs(movementVector.ia) != abs(movementVector.in) || vectorNorm == 0 || (vectorNorm > 1 && isQueen == -1) || (isQueen == -1 && colorMove == 'w' && movementVector.in < 0) || (isQueen == -1 && colorMove == 'b' && movementVector.in > 0)) {
+        if (abs(movementVector.ia) != abs(movementVector.in)
+            || vectorNorm == 0
+            || (vectorNorm > 1 && isQueen == -1)
+            || (isQueen == -1 && colorMove == 'w' && movementVector.in < 0)
+            || (isQueen == -1 && colorMove == 'b' && movementVector.in > 0)) {
             isValidMove = -1;
         }
+        printf("isvalid %d, isQueen %d, movementVectiorn.in %d\n", isValidMove, isQueen, movementVector.in);
         
         if (vectorNorm > 1 && isValidMove == 1) { // check on a way (queen)
             for (int i = 1; i < vectorNorm; i++)
@@ -195,9 +220,36 @@ int makeMove(
     
     free(sequence.seq); sequence.seq = NULL;
     game->turn = opponent;
+    getGameResult(game);
     return 1;
 }
 
-char getResult(struct Game* game) {
-    return ' ';
+void getGameResult(struct Game* game) {
+    int wcount = 0;
+    int bcount = 0;
+    for (int in = 0; in < 8; in++) {
+        for (int ia = 0; ia < 8; ia++) {
+            if (ia % 2 != in % 2) {
+                continue;
+            }
+            if (game->board[in][ia] == 'w' || game->board[in][ia] == 'W') {
+                wcount++;
+            }
+            else if (game->board[in][ia] == 'b' || game->board[in][ia] == 'B') {
+                bcount++;
+            }
+        }
+    }
+
+    if (bcount == 0) {
+        game->won = 'w';
+        return;
+    }
+    if (wcount == 0) {
+        game->won = 'b';
+        return;
+    }
+
+    game->won = ' ';
+    return;
 }

@@ -14,6 +14,7 @@
 void serialize_game(struct Game *game, char *buffer) {
     memcpy(buffer, game->board, 64);
     buffer[64] = game->turn;
+    buffer[65] = game->won;
 }
 
 int split_by_space(const char *input, char ***words) {
@@ -59,7 +60,9 @@ struct gameDataStruct gameData[MAX_GAMES];
 
 int getNewGameData() {
     for (int index = 0; index < MAX_GAMES; index++) {
+        printf("%d \n", index);
         pthread_mutex_lock(&gameData[index].lock);
+        printf("after mutex \n");
         if (gameData[index].active == 0) {
             gameData[index].active = 2;
             gameData[index].game = NULL;
@@ -127,7 +130,12 @@ void *playerThread(void *arg)
                     printf("Assigned %d as new game\n", gameDataIndex);
                     pthread_mutex_lock(&gameData[gameDataIndex].lock);
                     gameData[gameDataIndex].game = malloc(sizeof(struct Game));
-                    initGame(gameData[gameDataIndex].game);
+                    if (num_words >= 2 && strcmp(words[1], "endgame") == 0) {
+                        initEndGame(gameData[gameDataIndex].game);
+                    } else {
+                        initGame(gameData[gameDataIndex].game);
+                    }
+                    
                     pthread_mutex_unlock(&gameData[gameDataIndex].lock);
                 }
             } else if (gameDataIndex == -1 && num_words >= 2 && strcmp(words[0], "join") == 0) {
@@ -144,10 +152,11 @@ void *playerThread(void *arg)
                 if (gameData[partyId].active == 2) {
                     gameData[partyId].active = 1;
                     color = 'b';
+                    pthread_mutex_unlock(&gameData[partyId].lock);
                 } else {
+                    pthread_mutex_unlock(&gameData[partyId].lock);
                     partyId = -1;
                 }
-                pthread_mutex_unlock(&gameData[partyId].lock);
                     
                 printf("partyId: %d", partyId);
 
@@ -175,27 +184,26 @@ void *playerThread(void *arg)
                 pthread_mutex_unlock(&gameData[gameDataIndex].lock);
             } else if (gameDataIndex != -1 && num_words >= 1 && strcmp(words[0], "getboard") == 0) {
                 pthread_mutex_lock(&gameData[gameDataIndex].lock);
-                bzero(buff, sizeof(buff));                
-                serialize_game(gameData[gameDataIndex].game, buff);
+                bzero(buff, sizeof(buff));
+                if (gameData[gameDataIndex].game == NULL) {
+                    strcpy(buff, "-1");
+                } else {
+                    serialize_game(gameData[gameDataIndex].game, buff);
+                }
                 pthread_mutex_unlock(&gameData[gameDataIndex].lock);
                 write(newSocket, buff, sizeof(buff));
             } else if (gameDataIndex != -1 && num_words >= 2 && strcmp(words[0], "move") == 0) {
                 pthread_mutex_lock(&gameData[gameDataIndex].lock);
-                printf("turn before '%c' ", (gameData[gameDataIndex].game)->turn);
                 if ((gameData[gameDataIndex].game)->turn == color) {
-                    int isvalid = makeMove(gameData[gameDataIndex].game, color, words[1], sizeof(words[1]));
+                    int isvalid = makeMove(gameData[gameDataIndex].game, color, words[1], strlen(words[1]));
                     bzero(buff, sizeof(buff));
                     if (isvalid == 1) {
                         strcpy(buff, "1");
-                        printf("1\n");
                     } else {
                         strcpy(buff, "-1");
-                        printf("-1\n");
                     }
                     write(newSocket, buff, sizeof(buff));
                 }
-
-                printf("turn after '%c' \n", (gameData[gameDataIndex].game)->turn);
                 pthread_mutex_unlock(&gameData[gameDataIndex].lock);
             }
             
@@ -207,12 +215,23 @@ void *playerThread(void *arg)
 
     }
     
+    sleep(5);
+    if (gameDataIndex != -1) {
+        pthread_mutex_lock(&gameData[gameDataIndex].lock);
+        if (gameData[gameDataIndex].game != NULL) {
+            free(gameData[gameDataIndex].game);
+            gameData[gameDataIndex].game = NULL;
+        }
+        pthread_mutex_unlock(&gameData[gameDataIndex].lock);
+    }
+
     free(data);
     close(newSocket);
     pthread_exit(NULL);
 }
 
 int main(){
+    system("clear");
     int serverSocket, newSocket;
     struct sockaddr_in serverAddr;
     struct sockaddr_storage serverStorage;

@@ -8,9 +8,12 @@
 struct Game {
     char board[8][8]; // [0][0] - lower right corner (A1) ; [in][ia] in => 1,2..., ia => A,B,...
     char turn;
+    char won;
 };
 
 void initGame(struct Game* game);
+void initEndGame(struct Game* game);
+
 
 // return:
 //       1 => move valid
@@ -20,10 +23,6 @@ int makeMove(
     char colorMove, // 'w' / 'b'
     char* command, int commandCharLen // "A1->B3"
 );
-
-// return:
-//      'w' / 'b' / ' ' ; white / black / none
-char getResult(struct Game* game);
 
 void printBoard(struct Game* game);
 
