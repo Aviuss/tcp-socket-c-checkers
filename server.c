@@ -11,11 +11,6 @@
 #define BUFFER_SIZE 1000
 #define MAX_GAMES 100
 
-void serialize_game(struct Game *game, char *buffer) {
-    memcpy(buffer, game->board, 64);
-    buffer[64] = game->turn;
-    buffer[65] = game->won;
-}
 
 int split_by_space(const char *input, char ***words) {
     if (!input) return 0;
@@ -52,17 +47,23 @@ int split_by_space(const char *input, char ***words) {
 
 struct gameDataStruct {
     struct Game *game;
-    int active;              // 0 = inactive, 1 = white move, -1 = black move, 2 = awaits for other player
+    int active;              // 0 = inactive, 1 = white move, -1 = black move, 2 = awaits for other player, 5 = other player disconnected
     pthread_mutex_t lock;    // Mutex for thread-safe access
 };
 
 struct gameDataStruct gameData[MAX_GAMES];
 
+void serialize_game(struct gameDataStruct *gameData, char *buffer) {
+    memcpy(buffer, gameData->game->board, 64);
+    buffer[64] = gameData->game->turn;
+    buffer[65] = gameData->game->won;
+    buffer[66] = gameData->active;
+}
+
+
 int getNewGameData() {
     for (int index = 0; index < MAX_GAMES; index++) {
-        printf("%d \n", index);
         pthread_mutex_lock(&gameData[index].lock);
-        printf("after mutex \n");
         if (gameData[index].active == 0) {
             gameData[index].active = 2;
             gameData[index].game = NULL;
@@ -98,13 +99,44 @@ void *playerThread(void *arg)
         timeout.tv_sec = 5; timeout.tv_usec = 0; // 5sec
         int ready = select(newSocket + 1, &readfds, NULL, NULL, &timeout);
         if (ready < 0) {
-            perror("select error");
+            pthread_mutex_lock(&gameData[gameDataIndex].lock);
+            if (gameDataIndex != -1 && gameData[gameDataIndex].game != NULL) {
+                gameData[gameDataIndex].active = 5;
+                pthread_mutex_unlock(&gameData[gameDataIndex].lock);
+                sleep(60);
+                pthread_mutex_lock(&gameData[gameDataIndex].lock);
+                if (gameData[gameDataIndex].game != NULL) {
+                    free(gameData[gameDataIndex].game);
+                    gameData[gameDataIndex].game = NULL;
+                }
+            }
+            pthread_mutex_unlock(&gameData[gameDataIndex].lock);
+                
+            free(data);
+            close(newSocket);
+            pthread_exit(NULL);
             break;
         } else if (ready == 0) {
             continue;
         } else {
             int n = recv(newSocket, buff, sizeof(buff), 0);
             if (n <= 0) {
+                pthread_mutex_lock(&gameData[gameDataIndex].lock);
+                if (gameDataIndex != -1 && gameData[gameDataIndex].game != NULL) {
+                    gameData[gameDataIndex].active = 5;
+                    pthread_mutex_unlock(&gameData[gameDataIndex].lock);
+                    sleep(60);
+                    pthread_mutex_lock(&gameData[gameDataIndex].lock);
+                    if (gameData[gameDataIndex].game != NULL) {
+                        free(gameData[gameDataIndex].game);
+                        gameData[gameDataIndex].game = NULL;
+                    }
+                }
+                pthread_mutex_unlock(&gameData[gameDataIndex].lock);
+                    
+                free(data);
+                close(newSocket);
+                pthread_exit(NULL);
                 break;
             }
 
@@ -188,7 +220,7 @@ void *playerThread(void *arg)
                 if (gameData[gameDataIndex].game == NULL) {
                     strcpy(buff, "-1");
                 } else {
-                    serialize_game(gameData[gameDataIndex].game, buff);
+                    serialize_game(&gameData[gameDataIndex], buff);
                 }
                 pthread_mutex_unlock(&gameData[gameDataIndex].lock);
                 write(newSocket, buff, sizeof(buff));

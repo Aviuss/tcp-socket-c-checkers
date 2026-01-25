@@ -9,12 +9,6 @@
 #include "checkers.h"
 #define BUFFER_SIZE 1000
 
-void deserialize_game(char *buffer, struct Game *game) {
-    memcpy(game->board, buffer, 64);
-    game->turn = buffer[64];
-    game->won = buffer[65];
-}
-
 int split_by_space(const char *input, char ***words) {
     if (!input) return 0;
 
@@ -52,6 +46,14 @@ int SocketFD;
 int partyId = -1;
 char buff[BUFFER_SIZE];
 struct Game game;
+int game_activity = -1;
+
+void deserialize_game(char *buffer, struct Game *game) {
+    memcpy(game->board, buffer, 64);
+    game->turn = buffer[64];
+    game->won = buffer[65];
+    game_activity = buffer[66];
+}
 
 void updateBoard() {
     bzero(buff, BUFFER_SIZE);
@@ -159,6 +161,11 @@ int main(int argc, char *argv[])
 
     while (1)
     {
+        if (game_activity == 5) {
+            printf("The other player disconnected :/ ...\nIt would make you a winner, on the other hand!\n");
+            break;
+        }
+
         if (game.won != ' ') {
             printf("WINNER IS ");
             if (game.won == 'w') {
@@ -170,6 +177,7 @@ int main(int argc, char *argv[])
         }
 
         if (game.turn == color) {
+            if (game_activity == 5) { continue; }
             printf("Type turn sequence (e.g. A1=>B2 or A1=>B2=>A3): ");
             bzero(buff, sizeof(buff));
             fgets(buff, sizeof buff, stdin);
@@ -184,12 +192,10 @@ int main(int argc, char *argv[])
             
             bzero(buff, sizeof(buff));
             read(SocketFD, buff, sizeof(buff));
-            if (strcmp(buff, "1") == 0) {
-                updateBoard();
-            }
+            updateBoard();
         } else {
             printf("Opponents turn .. .\n");
-            while(game.won == ' ' && game.turn != color) {
+            while(game.won == ' ' && game.turn != color && game_activity != 5) {
                 sleep(1);
                 updateBoard();
             }
