@@ -6,11 +6,102 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include "checkers.h"
 #define BUFFER_SIZE 1000
+
+void deserialize_game(char *buffer, struct Game *game) {
+    memcpy(game->board, buffer, 64);
+    game->turn = buffer[64];
+}
+
+int split_by_space(const char *input, char ***words) {
+    if (!input) return 0;
+
+    int count = 0;
+    const char *tmp = input;
+
+    while (*tmp) {
+        while (*tmp == ' ') tmp++;
+        if (*tmp) count++;
+        while (*tmp && *tmp != ' ') tmp++;
+    }
+
+    *words = malloc(count * sizeof(char*));
+    if (!*words) return 0;
+
+    int index = 0;
+    tmp = input;
+    while (*tmp) {
+        while (*tmp == ' ') tmp++;
+        if (*tmp) {
+            const char *start = tmp;
+            while (*tmp && *tmp != ' ') tmp++;
+            int len = tmp - start;
+            (*words)[index] = malloc(len + 1);
+            strncpy((*words)[index], start, len);
+            (*words)[index][len] = '\0';
+            index++;
+        }
+    }
+
+    return count;
+}
+
+int SocketFD;
+int partyId = -1;
+char buff[BUFFER_SIZE];
+struct Game game;
+
+void updateBoard() {
+    bzero(buff, BUFFER_SIZE);
+    strcpy(buff, "getboard");
+    write(SocketFD, buff, sizeof buff);   
+    bzero(buff, BUFFER_SIZE);
+    read(SocketFD, buff, sizeof buff);
+    deserialize_game(buff, &game);
+}
+
+void createGame() {
+    bzero(buff, BUFFER_SIZE);
+    strcpy(buff, "create");
+    write(SocketFD, buff, sizeof buff);   
+
+    bzero(buff, BUFFER_SIZE);
+    read(SocketFD, buff, sizeof buff);
+    if (strcmp(buff, "-1") == 0) {
+        return;
+    }
+    partyId = atoi(buff);
+}
+
+
+int lobbyReady() {
+    bzero(buff, BUFFER_SIZE);
+    strcpy(buff, "lobbyReady");
+    write(SocketFD, buff, sizeof buff);   
+
+    bzero(buff, BUFFER_SIZE);
+    read(SocketFD, buff, sizeof buff);
+    if (strcmp(buff, "-1") == 0) {
+        return 0;
+    }
+    return 1;
+}
+
+void joinGame(char* buffor, size_t len) {
+    printf("%d\n", len);
+    write(SocketFD, buffor, len);   
+
+    bzero(buff, BUFFER_SIZE);
+    read(SocketFD, buff, sizeof buff);
+    if (strcmp(buff, "-1") == 0) {
+        return;
+    }
+    partyId = atoi(buff);
+}
 
 int main(int argc, char *argv[])
 {
-    int SocketFD;
 	SocketFD = socket(AF_INET, SOCK_STREAM, 0);
 	if (SocketFD == -1) {
 		perror("cannot create socket");
@@ -28,21 +119,45 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 	
-    while (1)
-    {
-        char buff[BUFFER_SIZE];
+    while (partyId == -1) {
+        system("clear");
+        printf("Checkers online \ntype 'create' to create a lobby \ntype 'join [party id]' to join a lobby \n> ");
         bzero(buff, BUFFER_SIZE);
-        printf("wpisz wiadomosc dla servera:");
         fgets(buff, sizeof(buff), stdin);
         printf("\n");
-        write(SocketFD, buff, sizeof buff);
-        
-        
-        bzero(buff, 1000);
-        read(SocketFD, buff, sizeof buff);
-        printf("server: %s \n", buff);
-        close(SocketFD);       
+
+        char **words;
+        buff[strcspn(buff, "\r\n")] = '\0';
+        int num_words = split_by_space(buff, &words);
+
+        if (num_words >= 1 && strcmp(words[0], "create") == 0) {
+            createGame();
+            printf("Party created. Party id is '%d' \nWaiting for other player to join .. .\n", partyId);
+            while(lobbyReady() == 0) {
+                sleep(1);
+            }
+        } else if (num_words >= 2 && strcmp(words[0], "join") == 0) {
+            printf("partyid: %d\n", partyId);
+            joinGame(buff, sizeof buff);
+            printf("partyid: %d\n", partyId);
+            break;
+        }
+
+        for (int i = 0; i < num_words; i++) {
+            free(words[i]);
+        }
+        free(words);
+    }
+
+    
+    updateBoard();
+    printBoard(&game);
+
+    while (1)
+    {
+    
     }
     
+    close(SocketFD);
     return EXIT_SUCCESS;
 }

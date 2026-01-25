@@ -7,16 +7,13 @@
 #include<fcntl.h> 
 #include<unistd.h> 
 #include<pthread.h>
+#include "checkers.h"
 #define BUFFER_SIZE 1000
 #define MAX_GAMES 100
 
-int buffer_to_int(char *buf, size_t len) {
-    int value = 0;
-    size_t copy_len = len < sizeof(int) ? len : sizeof(int);
-    for (size_t i = 0; i < copy_len; i++) {
-        value |= buf[i] << (8 * i);
-    }
-    return value;
+void serialize_game(struct Game *game, char *buffer) {
+    memcpy(buffer, game->board, 64);
+    buffer[64] = game->turn;
 }
 
 int split_by_space(const char *input, char ***words) {
@@ -53,7 +50,8 @@ int split_by_space(const char *input, char ***words) {
 }
 
 struct gameDataStruct {
-    int active;              // 0 = inactive, 1 = active, 2 = awaits for other player
+    struct Game *game;
+    int active;              // 0 = inactive, 1 = white move, -1 = black move, 2 = awaits for other player
     pthread_mutex_t lock;    // Mutex for thread-safe access
 };
 
@@ -74,7 +72,6 @@ int getNewGameData() {
 
 struct playerThreadData {
     int sockedFd;
-    int gameDataIndex;
 };
 
 void *playerThread(void *arg)
@@ -110,10 +107,10 @@ void *playerThread(void *arg)
             buff[strcspn(buff, "\r\n")] = '\0';
             int num_words = split_by_space(buff, &words);
 
-            /*printf("Found %d words:\n", num_words);
+            printf("\nFound %d words:\n", num_words);
             for (int i = 0; i < num_words; i++) {
                 printf("[%d]: %s\n", i, words[i]);
-            }*/
+            }
 
             if (gameDataIndex == -1 && num_words >= 1 && strcmp(words[0], "create") == 0) {
                 gameDataIndex = getNewGameData();
@@ -125,10 +122,17 @@ void *playerThread(void *arg)
                     bzero(buff, BUFFER_SIZE);
                     sprintf(buff, "%d", gameDataIndex);
                     write(newSocket, buff, sizeof(buff));
+                    printf("Assigned %d as new game\n", gameDataIndex);
+
+                    pthread_mutex_lock(&gameData[gameDataIndex].lock);
+                    gameData[gameDataIndex].game = malloc(sizeof(struct Game));
+                    pthread_mutex_unlock(&gameData[gameDataIndex].lock);
+
                 }
             } else if (gameDataIndex == -1 && num_words >= 2 && strcmp(words[0], "join") == 0) {
-                int partyId = buffer_to_int(words[1], sizeof(words[1]));
-                
+                int partyId = atoi(words[1]);
+                printf("partyId: %d", partyId);
+
                 if (!(partyId >= 0 && partyId < MAX_GAMES)) {
                     bzero(buff, BUFFER_SIZE);
                     strcpy(buff, "-1");
@@ -143,6 +147,7 @@ void *playerThread(void *arg)
                 }
                 pthread_mutex_unlock(&gameData[partyId].lock);
                     
+                printf("partyId: %d", partyId);
 
                 if (partyId != -1) {
                     gameDataIndex = partyId;
@@ -154,6 +159,25 @@ void *playerThread(void *arg)
                     strcpy(buff, "-1");
                     write(newSocket, buff, sizeof(buff));
                 }
+            } else if (gameDataIndex != -1 && num_words >= 1 && strcmp(words[0], "lobbyReady") == 0) {
+                pthread_mutex_lock(&gameData[gameDataIndex].lock);
+                bzero(buff, sizeof(buff));
+
+                if (gameData[gameDataIndex].active == 2) {
+                    strcpy(buff, "-1");
+                } else {
+                    strcpy(buff, "1");
+                }
+                write(newSocket, buff, sizeof(buff));
+
+                pthread_mutex_unlock(&gameData[gameDataIndex].lock);
+            } else if (gameDataIndex != -1 && num_words >= 1 && strcmp(words[0], "getboard") == 0) {
+                pthread_mutex_lock(&gameData[gameDataIndex].lock);
+                bzero(buff, sizeof(buff));
+                initGame(gameData[gameDataIndex].game);
+                serialize_game(gameData[gameDataIndex].game, buff);
+                pthread_mutex_unlock(&gameData[gameDataIndex].lock);
+                write(newSocket, buff, sizeof(buff));
             }
             
             for (int i = 0; i < num_words; i++) {
