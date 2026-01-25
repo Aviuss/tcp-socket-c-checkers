@@ -64,6 +64,7 @@ void serialize_game(struct gameDataStruct *gameData, char *buffer) {
 int getNewGameData() {
     for (int index = 0; index < MAX_GAMES; index++) {
         pthread_mutex_lock(&gameData[index].lock);
+        printf("index %d, activity %d \n", index, gameData[index].active);
         if (gameData[index].active == 0) {
             gameData[index].active = 2;
             gameData[index].game = NULL;
@@ -108,6 +109,7 @@ void *playerThread(void *arg)
                 if (gameData[gameDataIndex].game != NULL) {
                     free(gameData[gameDataIndex].game);
                     gameData[gameDataIndex].game = NULL;
+                    gameData[gameDataIndex].active = 0;
                 }
             }
             pthread_mutex_unlock(&gameData[gameDataIndex].lock);
@@ -130,6 +132,7 @@ void *playerThread(void *arg)
                     if (gameData[gameDataIndex].game != NULL) {
                         free(gameData[gameDataIndex].game);
                         gameData[gameDataIndex].game = NULL;
+                        gameData[gameDataIndex].active = 0;
                     }
                 }
                 pthread_mutex_unlock(&gameData[gameDataIndex].lock);
@@ -253,6 +256,7 @@ void *playerThread(void *arg)
         if (gameData[gameDataIndex].game != NULL) {
             free(gameData[gameDataIndex].game);
             gameData[gameDataIndex].game = NULL;
+            gameData[gameDataIndex].active = 0;
         }
         pthread_mutex_unlock(&gameData[gameDataIndex].lock);
     }

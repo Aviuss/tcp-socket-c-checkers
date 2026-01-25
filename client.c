@@ -161,11 +161,6 @@ int main(int argc, char *argv[])
 
     while (1)
     {
-        if (game_activity == 5) {
-            printf("The other player disconnected :/ ...\nIt would make you a winner, on the other hand!\n");
-            break;
-        }
-
         if (game.won != ' ') {
             printf("WINNER IS ");
             if (game.won == 'w') {
@@ -173,6 +168,11 @@ int main(int argc, char *argv[])
             } else {
                 printf(" BLACK!\n");
             }
+            break;
+        }
+
+        if (game_activity == 5) {
+            printf("The other player disconnected :/ ...\nIt would make you a winner, on the other hand!\n");
             break;
         }
 
