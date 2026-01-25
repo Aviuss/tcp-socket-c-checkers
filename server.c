@@ -62,6 +62,7 @@ int getNewGameData() {
         pthread_mutex_lock(&gameData[index].lock);
         if (gameData[index].active == 0) {
             gameData[index].active = 2;
+            gameData[index].game = NULL;
             pthread_mutex_unlock(&gameData[index].lock);
             return index;
         }
@@ -85,6 +86,7 @@ void *playerThread(void *arg)
 
     fd_set readfds;
     struct timeval timeout;
+    char color = 'w';
 
     while (1) {
         FD_ZERO(&readfds);
@@ -123,11 +125,10 @@ void *playerThread(void *arg)
                     sprintf(buff, "%d", gameDataIndex);
                     write(newSocket, buff, sizeof(buff));
                     printf("Assigned %d as new game\n", gameDataIndex);
-
                     pthread_mutex_lock(&gameData[gameDataIndex].lock);
                     gameData[gameDataIndex].game = malloc(sizeof(struct Game));
+                    initGame(gameData[gameDataIndex].game);
                     pthread_mutex_unlock(&gameData[gameDataIndex].lock);
-
                 }
             } else if (gameDataIndex == -1 && num_words >= 2 && strcmp(words[0], "join") == 0) {
                 int partyId = atoi(words[1]);
@@ -142,6 +143,7 @@ void *playerThread(void *arg)
                 pthread_mutex_lock(&gameData[partyId].lock);
                 if (gameData[partyId].active == 2) {
                     gameData[partyId].active = 1;
+                    color = 'b';
                 } else {
                     partyId = -1;
                 }
@@ -173,11 +175,28 @@ void *playerThread(void *arg)
                 pthread_mutex_unlock(&gameData[gameDataIndex].lock);
             } else if (gameDataIndex != -1 && num_words >= 1 && strcmp(words[0], "getboard") == 0) {
                 pthread_mutex_lock(&gameData[gameDataIndex].lock);
-                bzero(buff, sizeof(buff));
-                initGame(gameData[gameDataIndex].game);
+                bzero(buff, sizeof(buff));                
                 serialize_game(gameData[gameDataIndex].game, buff);
                 pthread_mutex_unlock(&gameData[gameDataIndex].lock);
                 write(newSocket, buff, sizeof(buff));
+            } else if (gameDataIndex != -1 && num_words >= 2 && strcmp(words[0], "move") == 0) {
+                pthread_mutex_lock(&gameData[gameDataIndex].lock);
+                printf("turn before '%c' ", (gameData[gameDataIndex].game)->turn);
+                if ((gameData[gameDataIndex].game)->turn == color) {
+                    int isvalid = makeMove(gameData[gameDataIndex].game, color, words[1], sizeof(words[1]));
+                    bzero(buff, sizeof(buff));
+                    if (isvalid == 1) {
+                        strcpy(buff, "1");
+                        printf("1\n");
+                    } else {
+                        strcpy(buff, "-1");
+                        printf("-1\n");
+                    }
+                    write(newSocket, buff, sizeof(buff));
+                }
+
+                printf("turn after '%c' \n", (gameData[gameDataIndex].game)->turn);
+                pthread_mutex_unlock(&gameData[gameDataIndex].lock);
             }
             
             for (int i = 0; i < num_words; i++) {

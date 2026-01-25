@@ -119,6 +119,8 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 	
+    char color = 'w';
+
     while (partyId == -1) {
         system("clear");
         printf("Checkers online \ntype 'create' to create a lobby \ntype 'join [party id]' to join a lobby \n> ");
@@ -137,10 +139,10 @@ int main(int argc, char *argv[])
                 sleep(1);
             }
         } else if (num_words >= 2 && strcmp(words[0], "join") == 0) {
-            printf("partyid: %d\n", partyId);
             joinGame(buff, sizeof buff);
-            printf("partyid: %d\n", partyId);
-            break;
+            if (partyId != -1) {
+                color = 'b';
+            }
         }
 
         for (int i = 0; i < num_words; i++) {
@@ -149,13 +151,41 @@ int main(int argc, char *argv[])
         free(words);
     }
 
-    
     updateBoard();
+    system("clear");
     printBoard(&game);
 
     while (1)
     {
-    
+        if (game.turn == color) {
+            printf("Type turn sequence (e.g. A1=>B2 or A1=>B2=>A3): ");
+            bzero(buff, sizeof(buff));
+            fgets(buff, sizeof buff, stdin);
+            printf("\n");
+
+            char* prefix = "move ";
+            size_t prefix_len = strlen(prefix);
+            size_t original_len = strlen(buff);
+            memmove(buff + prefix_len, buff, original_len + 1);
+            memcpy(buff, prefix, prefix_len);
+            write(SocketFD, buff, sizeof(buff));
+            
+            bzero(buff, sizeof(buff));
+            read(SocketFD, buff, sizeof(buff));
+            printf("buff: %s\n", buff);
+            if (strcmp(buff, "1") == 0) {
+                updateBoard();
+            }
+        } else {
+            printf("Opponents turn .. .\n");
+            while(game.turn != color) {
+                sleep(1);
+                updateBoard();
+            }
+        }
+
+        system("clear");
+        printBoard(&game);
     }
     
     close(SocketFD);
